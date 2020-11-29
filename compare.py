@@ -3,93 +3,21 @@ import sys
 import time
 from operator import itemgetter
 from collections import OrderedDict
+import numpy as np
 
 import pandas as pd
 
-def read_file(path_file, colums):
-    #with open(path_file, 'r') as csv_file:
-    #    csv_reader = csv.reader(csv_file, delimiter=',')
-    #    file_read = [list(row) for row in csv_reader]
-    
-    print("build dataframe")
-    data = pd.read_csv(path_file, header=None ,usecols=colums)
-    print("dataframe to list")
-    file_read = data.values.tolist()
-    
-    return file_read
 
-def create_dict(keys, col, file_list):
-    new_dict={}
-    for row in file_list:
-        unique = str(row[0])+ "_"+ str(row[1])
-        if unique not in new_dict: #key nao encontrada no dict e portanto adicionada
-            
-            new_dict[unique] = str(row[col])
-        else: #key ja registada no dict e portanto append dos valores
-            
-            value = new_dict[unique]
-            new_dict[unique] = value+ "_" +str(row[col])
-    
-    return new_dict
+def get_data(filename, col):
 
-def writer_to_file(file_write, row):       
-    """
-    Write row to csv (file_write)
+    file_col = pd.read_csv(filename,usecols=col)
 
-    row: list with values of row to write
-    """ 
-    f = open(file_write,'a')
-    writer = csv.writer(f, delimiter = ',')
-    writer.writerow(row)
-    f.close()
-
-def output_csv(name_file):
-    """
-    Sorted namefile: normal values first; duplicates in the end (values like-> key: 21_23_45 )
-
-    name_file: csv name
-    """
-    with open(name_file, 'r') as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=',')
-        correct_csv = [list(row) for row in csv_reader]
-
-    first = []
-    last = []
-    for i in correct_csv:
-        if i not in last or i not in first:
-            try:
-                if "_" in i[2] or "_" in i[5]:
-                    last.append(i)
-                else:
-                    first.append(i)
-            except:
-                first.append(i)
-
-    output = open(name_file,'w')
-    output.truncate()
-    writer = csv.writer(output, delimiter = ',')
-    for row in first:
-        writer.writerow(row)
-    for row in last:
-        writer.writerow(row)
-    output.close()
-
-def extra_rows(file_list_a, file_dict_b, keys ,filename):
-
-    """
-    Output in filename.csv rows of file_list_a that doesnt appear in file_dict_b (search by key)
+    return file_col
 
 
-    file_list_a : file with keys to search
-    file_dict_b : file where the keys from file_list_a will be search
-    keys: list with numbers of columns of key
-    filename: name of output pull
-    """
-    for row in file_list_a: #search keys doesnt exist in other file
-        key = str(row[0])+ "_"+ str(row[1])
-        if key not in file_dict_b:
-            writer_to_file(filename,row)
-
+def concat_df(df_key, df_col):
+        df_concat = pd.concat([df_key['key'], df_col], axis=1)
+        return df_concat
     
 def main(argv):
     start = time.time()
@@ -102,90 +30,96 @@ def main(argv):
         
         columns = argv[4].split(",")
         columns = [int(i)-1 for i in columns]
-
-        read_cols = keys + columns
-        print("reading_file1")
-        file1 = read_file(argv[1], read_cols)
-
-        print("reading_file2")
         
-        file2 = read_file(argv[2], read_cols)
-
-
+        read_cols = keys + columns
         
     except Exception as e:
         print(e)
         sys.exit("Run2: python compare.py path_file1 path_file2 0,1(number_of_columns_separated_by_comma) 0,1,2(number_of_columns_separated_by_comma)")
 
-    end = time.time()
-    print("Read time spend: ")
-    print(end-start)
+
 
 
     
+
+    #create df with key in column, is col 0 + _ + col 1
+    file1 = pd.read_csv(argv[1], index_col=False, usecols=keys)
+    file1 = file1.applymap(str)
+    file1.insert(1,'del',"_")
+    #concat all columns to one named key
+    file1["key"] = file1.values.sum(axis=1)
+
+    file2 = pd.read_csv(argv[2], index_col=False, usecols=keys)
+    file2 = file2.applymap(str)
+    file2.insert(1,'del',"_")
+    file2["key"] = file2.values.sum(axis=1)
+    file2.head()
+
+
+    #just convert to df because when  grab only one columns this put in series type
+    extra_df1 = file1["key"].to_frame()
+
+    extra_df2 = file2["key"].to_frame()
+    
+    #generate column similar to left join sql
+    extra1 = extra_df1.merge(extra_df2.drop_duplicates(), on=['key'], how='left', indicator=True)
+    #takes only left only, in this case df1 present
+    extra1 = extra1.loc[extra1['_merge'] == "left_only"]
+    extra1.to_csv("extrafile_1.csv")
+
+    extra2 = extra_df2.merge(extra_df1.drop_duplicates(), on=['key'], how='left', indicator=True)
+    extra2 = extra2.loc[extra2['_merge'] == "left_only"]
+    extra2.to_csv("extrafile_2.csv")
+
+    print("Extra files done")
+        
     for col in columns: #run every columns and build one csv per row
+        
+        
+        read_cols = []
 
-        n_files = 0
+        #read_cols = keys
+        read_cols.append(int(col))
         
-        index_col = read_cols.index(col) #search position of col in list of all readable cols
-        name_file = 'header_'+str(file1[0][index_col])+'.csv'
-        output = open(name_file, 'w')
-        output.truncate()
-        writer = csv.writer(output, delimiter = ',')
+        file1_col = get_data(argv[1], read_cols)
+        file2_col = get_data(argv[2], read_cols)
+
+        #get name of column
+        colname = file1_col.columns[0]
+        print("Processing: " + colname)
+    
+        #contact df with key + df with values
+        df1 = concat_df(file1, file1_col)
+        df2 = concat_df(file2, file2_col)
+
+
+
+        df1.columns = ["key", "data"]
+        df2.columns = ["key", "data"]
+
+        #generate dataframe with cols: key, value_file1, value_file2
+        df = pd.merge(df1,df2[['key','data']],on='key')
+        df = df.rename(columns={"data_x":"file_1","data_y":"file_2"})
+
+        #grab all instances where value_file1 != value_file2
+        df = df[df["file_1"]!=df["file_2"]]
+
+        #convert to string all fields, necessary for next step
+        df =  df.applymap(str)
+
+        #remove mirror values ex: AB = BA or 21 13 = 13 21
+        df_r = df.loc[pd.DataFrame(np.sort(df[['key','file_1', 'file_2']],1),index=df.index).drop_duplicates(keep=False).index]
+        df_r.to_csv("header_"+ colname+".csv")
         
-        file1_dict = create_dict(keys,index_col,file1)
-        file2_dict = create_dict(keys,index_col,file2)
         end = time.time()
-        print("Create dict time spend: ")
+        print("Time spend: ")
         print(end-start)
-
-        for row in file1:
-            
-            n_files +=1
-            if n_files%100==0:
-                print("Rows read: " + str(n_files) + " Number total rows file1: " + str(len(file1)))
-                end = time.time()
-                print(end - start)
-
-
-            keyA = str(row[0])+ "_"+ str(row[1])
-            
-
-            if keyA in file2_dict:
-                elemA = file1_dict[keyA]
-                elemB = file2_dict[keyA]
-                valueA = sorted(elemA.split("_"))
-                valueB = sorted(elemB.split("_"))
-                #list to string to write
-                valueA_str = '_'.join([str(elem) for elem in valueA])
-                valueB_str = '_'.join([str(elem) for elem in valueB])
-                keyA = keyA.replace("_",",")
-
-                if valueA_str != valueB_str:
-                    
-                    line = keyA + "," + valueA_str + "," + keyA + "," + valueB_str
-                    line = line.split(",")
-                    writer.writerow(line)
-
-        output.close()
         
-            
-        output_csv(name_file) #modify csv to correct output
 
-    
-    
-    print("Creating extra_file 1") 
-    filename = 'extra_file1.csv'
-    output_extra = open(filename, 'w')
-    output_extra.truncate()
-    extra_rows(file1,file2_dict,keys,filename)
-    
-    print("Creating extra_file 2")
-    filename = 'extra_file2.csv'
-    output_extra = open(filename, 'w')
-    output_extra.truncate()
-    extra_rows(file2,file1_dict,keys,filename)                  
-    
+
+
+
+
     end = time.time()
     print("Time spend: ")
     print(end - start)
