@@ -109,7 +109,11 @@ def main(argv):
 
         #remove mirror values ex: AB = BA or 21 13 = 13 21
         df_r = df.loc[pd.DataFrame(np.sort(df[['key','file_1', 'file_2']],1),index=df.index).drop_duplicates(keep=False).index]
-        df_r.to_csv("header_"+ colname+".csv")
+
+        #remove nan values
+        df_n = df_r[df_r['file_1'] != df_r['file_2']]
+        
+        df_n.to_csv("header_"+ colname+".csv")
         
         end = time.time()
         print("Time spend: ")
