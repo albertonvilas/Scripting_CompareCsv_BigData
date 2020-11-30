@@ -14,4 +14,6 @@ nr_columns_to_analise -> number of columns to compare between files
 Output:
 
 -1 file per column with rows diferents between the two files ("header" + name of column.csv)
+
+
 -File with rows of each file that doesnt appear in the other (key searching) - extrafile1.csv and extrafile2.csv
