@@ -1,6 +1,6 @@
 # compare_csv
 
-Compare rows of big files
+Compare rows of big data files
 
 
 run:
