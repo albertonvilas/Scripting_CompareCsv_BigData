@@ -45,15 +45,28 @@ def main(argv):
     #create df with key in column, is col 0 + _ + col 1
     file1 = pd.read_csv(argv[1], index_col=False, usecols=keys)
     file1 = file1.applymap(str)
-    file1.insert(1,'del',"_")
+
+    #get len of key
+    size_dataframe = len(file1.columns)
+
+    #insert between key column values the delimiter "_"
+    for i in range(size_dataframe+1):
+        if i%2!=0:
+            file1.insert(i,'del'+ str(i),"_")
     #concat all columns to one named key
     file1["key"] = file1.values.sum(axis=1)
 
+
+
     file2 = pd.read_csv(argv[2], index_col=False, usecols=keys)
     file2 = file2.applymap(str)
-    file2.insert(1,'del',"_")
+
+    for i in range(size_dataframe+1):
+        if i%2!=0:
+            file2.insert(i,'del'+ str(i),"_")
+
     file2["key"] = file2.values.sum(axis=1)
-    file2.head()
+    print(file2.head())
 
 
     #just convert to df because when  grab only one columns this put in series type
