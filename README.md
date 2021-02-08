@@ -5,7 +5,7 @@ Compare rows of big data files
 
 run:
 
-python compare.py path_file1 path_file2 nr_column_key nr_columns_to_analise
+python compare.py path_file1 path_file2 columns_keys columns_to_compare
 
 nr_column_key -> number of columns of key values that link rows in file1 and file2
 nr_columns_to_analise -> number of columns to compare between files
